@@ -109,6 +109,26 @@ uploaded_files = st.file_uploader("Sənədləri seçin (PDF, JPG, PNG)",
                                   accept_multiple_files=True)
 
 if uploaded_files:
+if uploaded_file:
+    # Faylın növünü yoxlayırıq
+    file_type = uploaded_file.type
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        # Əgər yüklənən fayl həqiqətən şəkildirsə, onu göstər
+        if "image" in file_type:
+            st.image(uploaded_file, caption="Yüklənən Sənəd", use_container_width=True)
+        # Əgər PDF-dirsə, məlumat mətni yaz (və ya PDF göstərici əlavə et)
+        elif "pdf" in file_type:
+            st.info("📄 PDF sənədi yükləndi. Analiz düyməsinə basaraq davam edin.")
+        # Əgər XML-dirsə
+        elif "xml" in file_type:
+            st.info("🔗 XML faylı yükləndi. Məlumatlar emal olunur...")
+        else:
+            st.warning("Naməlum fayl formatı yükləndi.")
+            
+        analyze_btn = st.button("🔍 Sənədi Analiz Et")
     all_pages = [] # Analiz üçün istifadə olunacaq bütün şəkillər buraya yığılacaq
     
     st.subheader("📸 Yüklənən Sənədlər")
@@ -136,11 +156,35 @@ if uploaded_files:
                         Təqdim olunan sənədlərdən (İnvoys, CMR, Packing List) Qısa İdxal Bəyannaməsi üçün məlumatları topla.
                         JSON formatında qaytar:
                         {
-                            "qrafa_2_gonderen": "...", "qrafa_8_alici": "...",
-                            "qrafa_18_masin": "...", "qrafa_22_mebleg": "...",
-                            "qrafa_22_valyuta": "...", "qrafa_31_yuk": "...",
-                            "qrafa_35_brutto": "...", "qrafa_38_netto": "...",
-                            "qrafa_44_inv": "...", "qrafa_44_cmr": "..."
+                            "sender": "Göndərən şirkət adı",
+                    "receiver": "Qəbul edən şirkət adı",
+                    "invoice_value": "İnvoysun cəmi məbləği və valyutası",
+                    "gross_weight": "Ümumi brutto çəki (kq)",
+                    "net_weight": "Ümumi netto çəki (kq)",
+                    "hs_code": "XİF MN kodu (10 rəqəmli)",
+                    "description": "Malların qısa təsviri"
+                }
+                Yalnız JSON formatında cavab ver, əlavə mətn yazma.
+                """}]
+                
+                # Şəkilləri mesaja əlavə edirik
+                for img in all_pages:
+                    # Şəkli base64-ə çevirmək üçün funksiya lazımdır (əvvəlki kodda olduğu kimi)
+                    content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encode_image(img)}"}})
+                
+                response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{"role": "user", "content": content}],
+                    max_tokens=1000
+                )
+                
+                st.subheader("📊 Analiz Nəticəsi")
+                st.code(response.choices[0].message.content, language="json")
+                
+        except Exception as e:
+            st.error(f"Xəta baş verdi: {e}")
+    else:
+        st.warning("Zəhmət olmasa sənədləri yükləyin."
                         }
                     """}]
                     
