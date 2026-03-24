@@ -10,7 +10,6 @@ from pdf2image import convert_from_bytes
 # --- SƏHİFƏ AYARLARI ---
 st.set_page_config(page_title="Borderpoint AI Pro", layout="wide", page_icon="🚢")
 
-# --- API ---
 try:
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 except Exception:
@@ -22,10 +21,9 @@ def encode_image(image):
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
 st.title("📑 Borderpoint | Tam Sənəd Analitiki")
-st.info("İnvoys (8001), CMR (2015) və Mənşə (7000) kodları ilə 44-cü qrafa sistemi.")
+st.info("İnvoys Nömrəsi, Tarixi, Valyutası və HS Kodların 100% dəqiqliklə oxunması.")
 
-# --- FAYL YÜKLƏMƏ ---
-uploaded_files = st.file_uploader("Sənədləri (İnvoys, CMR, Mənşə) yükləyin", type=["jpg", "png", "jpeg", "pdf"], accept_multiple_files=True)
+uploaded_files = st.file_uploader("Sənədləri (İnvoys, CMR) yükləyin", type=["jpg", "png", "jpeg", "pdf"], accept_multiple_files=True)
 
 all_pages = []
 if uploaded_files:
@@ -44,16 +42,37 @@ if uploaded_files:
         if not all_pages:
             st.warning("Zəhmət olmasa sənəd yükləyin.")
         else:
-            with st.spinner('Border 44-cü qrafa kodlarını təyin edir...'):
+            with st.spinner('Border sənədlərin "DNT"-sini oxuyur...'):
                 try:
-                    prompt = """Sən gömrük brokerisən. JSON qaytar:
+                    # İNVOYS VƏ CMR ÜÇÜN BİRLƏŞMİŞ PROMPT (Qızıl Versiya)
+                    prompt = """
+                    Sən peşəkar broker və OCR ekspertisən. Sənədləri (İnvoys və CMR) analiz et və JSON qaytar.
+                    
+                    1. İNVOYS MƏLUMATLARI (invoice_data):
+                       - invoice_no: İnvoysun nömrəsi
+                       - invoice_date: İnvoysun tarixi
+                       - total_amount: İnvoysun cəmi məbləği
+                       - currency: Valyuta kodu (USD, EUR, TRY və s.)
+                    
+                    2. HS KODLAR (items):
+                       - hs_code: İki sətirdə yazılan rəqəmləri birləşdir (məs: 6106.90 + 90.00.00 = 6106909000). Yalnız 10 rəqəm.
+                       - net: Netto çəki (məs: 101.08)
+                       - gross: Brutto çəki (məs: 106.46)
+                       - price: Malın qiyməti
+                       - desc: Malın təsviri
+                    
+                    3. CMR MƏLUMATLARI (cmr_data):
+                       - sender: Qrafa 1
+                       - receiver: Qrafa 2
+                       - truck_no: Qrafa 18 (Maşın nömrəsi)
+                    
+                    Mütləq bu strukturu qoru:
                     {
-                      "invoice_data": {"no": "", "date": "", "total": 0.0, "cur": ""},
+                      "invoice_data": {"invoice_no": "", "invoice_date": "", "total_amount": 0.0, "currency": ""},
                       "cmr_data": {"sender": "", "receiver": "", "truck_no": ""},
-                      "box_44": [{"code": "8001", "name": "INVOICE", "ref": ""}, {"code": "2015", "name": "CMR", "ref": ""}, {"code": "7000", "name": "ORIGIN", "ref": ""}],
-                      "items": [{"hs_code": "10 rəqəm", "net": 0.0, "gross": 0.0, "price": 0.0, "desc": ""}]
+                      "items": [{"hs_code": "", "net": 0.0, "gross": 0.0, "price": 0.0, "desc": ""}]
                     }
-                    GTİP kodlarını birləşdir. Rəqəmlərdən vergülləri sil."""
+                    """
                     
                     content = [{"type": "text", "text": prompt}]
                     for page in all_pages:
@@ -66,41 +85,3 @@ if uploaded_files:
                         response_format={"type": "json_object"}
                     )
                     st.session_state['res_data'] = json.loads(response.choices[0].message.content)
-                    st.success("✅ Analiz tamamlandı!")
-                except Exception as e:
-                    st.error(f"Xəta: {e}")
-
-# --- ANALİZ NƏTİCƏLƏRİ ---
-if 'res_data' in st.session_state:
-    res = st.session_state['res_data']
-    inv = res.get('invoice_data', {})
-    cmr = res.get('cmr_data', {})
-    box44 = res.get('box_44', [])
-    items = res.get('items', [])
-
-    # 1. MİLYYƏ
-    st.header("💰 İnvoys və Maliyyə")
-    ci1, ci2, ci3, ci4 = st.columns(4)
-    ci1.metric("İnvoys No", inv.get('no', 'N/A'))
-    ci2.metric("Tarix", inv.get('date', 'N/A'))
-    ci3.metric("Məbləğ", f"{inv.get('total', 0):,.2f}")
-    ci4.metric("Valyuta", inv.get('cur', 'USD'))
-
-    # 2. CMR
-    st.divider()
-    st.header("🚛 Nəqliyyat (CMR)")
-    cc1, cc2, cc3 = st.columns(3)
-    cc1.write(f"**Göndərən:** {cmr.get('sender', 'N/A')}")
-    cc2.write(f"**Alıcı:** {cmr.get('receiver', 'N/A')}")
-    cc3.write(f"**Maşın No:** {cmr.get('truck_no', 'N/A')}")
-
-    # 3. 44-cü QRAFA
-    st.divider()
-    st.header("📋 44-cü Qrafa: Sənəd Kodları")
-    if box44:
-        st.table(pd.DataFrame(box44))
-
-    # 4. MALLAR
-    st.divider()
-    if items:
-        df = pd.DataFrame(items)
