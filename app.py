@@ -263,7 +263,7 @@ if uploaded_files:
                 
                 for idx, row in items_df.iterrows():
                     st.markdown(f"""
-                    <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 5px; background-color: #fcfcfc;">
+                    <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 5px; background-color: 
                         <span style="color: blue;"><b>Maddə {idx+1}:</b></span> 
                         <b>Kod:</b> {row['HS Kod']} | 
                         <b>Təsvir:</b> {row['Malın Təsviri']} | 
