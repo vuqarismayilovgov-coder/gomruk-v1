@@ -29,10 +29,59 @@ if uploaded_files:
     # (Əvvəlki kodda olan fayl oxuma hissəsi bura daxildir...)
     all_pages = [] # Şəkilləri bura yığırıq
     
-    if st.button("🔍 Analiz et və Ötürmə üçün Hazırla"):
-        with st.spinner('Məlumatlar qrafalar üzrə qruplaşdırılır...'):
-            # Prompt-u e-customs qrafalarına uyğunlaşdırırıq
-            prompt_text = """
+    if st.button# --- ANALİZ PROSESİ ---
+    if st.button("🔍 Sənədləri Tam Analiz Et"):
+        with st.spinner('Süni İntellekt analiz aparır...'):
+            try:
+                # Prompt və şəkillərin hazırlanması (əvvəlki kimi)
+                content = [{"type": "text", "text": prompt_text}]
+                for page in all_analysis_pages:
+                    b64 = encode_image(page["img"])
+                    content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
+
+                response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{"role": "user", "content": content}],
+                    response_format={"type": "json_object"}
+                )
+                
+                # Vacib məqam: Nəticəni yaddaşa (session_state) yazırıq
+                st.session_state['res_data'] = json.loads(response.choices[0].message.content)
+                st.success("✅ Analiz tamamlandı!")
+                
+            except Exception as e:
+                st.error(f"Sistem xətası: {e}")
+
+# --- 2. BURADA DÜYMƏDƏN ÇIXIRIQ VƏ BU KODU ƏLAVƏ EDİRİK ---
+# Bu hissə "if st.button" blokunun içində DEYİL, ondan aşağıdadır.
+
+if 'res_data' in st.session_state:
+    res_data = st.session_state['res_data']
+    
+    st.divider()
+    st.subheader("🚀 E-Customs Sürətli Doldurma Paneli")
+    st.info("Hər bir xananın sağındakı simvola klikləyərək kopyalayın və portala yapışdırın.")
+
+    g = res_data.get('general', {})
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.text_input("1. Göndərən (Qrafa 1)", g.get('sender', 'N/A'), key="q1")
+        st.text_input("2. Alıcı (Qrafa 2)", g.get('receiver', 'N/A'), key="q2")
+        st.text_input("5. İnvoys No/Tarix (Qrafa 5)", g.get('invoice_info', 'N/A'), key="q5")
+    
+    with col2:
+        st.text_input("18. Maşın Nömrəsi", g.get('truck_number', 'N/A'), key="q18")
+        st.text_input("22. Valyuta/Dəyər", g.get('total_invoice_value', 'N/A'), key="q22")
+        st.text_input("CMR Nömrəsi", g.get('cmr_number', 'N/Z'), key="qcmr")
+
+    # Mallar üçün bölmə
+    st.write("### 📦 Mallar (XİF MN)")
+    for i, item in enumerate(res_data.get('items', [])):
+        with st.expander(f"Mal {i+1}: {item.get('hs_code')}"):
+            st.text_input(f"Kod ({i+1})", item.get('hs_code'), key=f"hs_{i}")
+            st.text_input(f"Netto ({i+1})", item.get('net_weight'), key=f"n_{i}")
+            st.text_area(f"Təsvir ({i+1})", item.get('description'), key=f"d_{i}")
             Sən sənədləri e-customs (11-formalı bəyannamə) üçün hazırlayan köməkçisən.
             Aşağıdakı qrafaları dəqiq tap:
             - Qrafa 1 (Göndərən): Ad və ünvan
