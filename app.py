@@ -1,4 +1,38 @@
 import streamlit as st
+
+# Saytın Başlığı
+st.set_page_config(page_title="Borderpoint", layout="wide")
+st.title("🚀 Borderpoint | Bəyannamə Doldurulması")
+
+# Fayl yükləmə bölməsi
+uploaded_file = st.file_uploader("XML və ya Sənəd şəklini yükləyin", type=['xml', 'pdf', 'jpg', 'png'])
+
+if uploaded_file:
+    # Ekranı iki hissəyə bölürük
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("📝 Qrafalar üzrə məlumatlar")
+        # XML-dən gələn məlumatları simulyasiya edirik
+        qrafa_2 = st.text_input("Qrafa 2: Göndərən", value="Logistics Corp LLC")
+        qrafa_31 = st.text_area("Qrafa 31: Malın təsviri", value="Fındıq ləpəsi, 20 ton")
+        qrafa_33 = st.text_input("Qrafa 33: XİF MN Kodu", value="0802220000")
+        qrafa_35 = st.number_input("Qrafa 35: Brutto çəki (kq)", value=20000)
+        
+    with col2:
+        st.subheader("📄 Bəyannamə Ön Baxış (SAD)")
+        # Burada bəyannamənin vizual forması görünəcək
+        st.info(f"""
+        *BƏYANNAMƏ FORMASI (ÖN BAXIŞ)*
+        ---
+        *Göndərən:* {qrafa_2}
+        *Kod:* {qrafa_33}
+        *Çəki:* {qrafa_35} kq
+        *Təsvir:* {qrafa_31}
+        """)
+        
+        if st.button("Bəyannaməni Təsdiqlə və İxrac Et"):
+            st.success("Bəyannamə uğurla hazırlandı!")
 import pandas as pd
 from PIL import Image
 from openai import OpenAI
