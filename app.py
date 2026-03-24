@@ -27,7 +27,7 @@ def create_qib_xml(data):
     return ET.tostring(root, encoding='utf-8')
 
 # --- İnterfeys ---
-st.sidebar.title("🚢 Smart Customs")
+st.sidebar.title("Borderpoint")
 st.sidebar.markdown("---")
 st.sidebar.write("✅ PDF və Şəkil dəstəyi")
 st.sidebar.write("✅ Multi-sənəd analizi")
