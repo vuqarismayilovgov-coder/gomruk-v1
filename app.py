@@ -24,7 +24,7 @@ def encode_image(image):
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
 def create_qib_xml(data):
-    root …
+    root 
 [07:27, 2026-03-24] nomrem: import streamlit as st
 import pandas as pd
 from PIL import Image
