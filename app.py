@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from pdf2image import convert_from_bytes
 
 # --- API AÇARINI BURAYA YAPIŞDIR ---
-client = OpenAI(api_key="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") 
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 st.set_page_config(page_title="Smart Broker AI Pro", layout="wide", page_icon="🚢")
 
