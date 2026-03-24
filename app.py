@@ -1,38 +1,73 @@
 import streamlit as st
+import openai
+import base64
 
 # Saytın Başlığı
 st.set_page_config(page_title="Borderpoint", layout="wide")
-st.title("🚀 Borderpoint | Bəyannamə Doldurulması")
+st.title("🌐 Borderpoint | Multi-Language Document AI")
 
-# Fayl yükləmə bölməsi
-uploaded_file = st.file_uploader("XML və ya Sənəd şəklini yükləyin", type=['xml', 'pdf', 'jpg', 'png'])
+# OpenAI API Açarı (Secrets-dən oxunur)
+client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+def analyze_with_ai(image_file, lang_prompt):
+    # Şəkli kodlaşdırırıq (Base64)
+    base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+    
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system",
+                "content": "Sən peşəkar gömrük və loqistika mütəxəssisisən. Sənədləri Rus, İngilis, Türk və Azərbaycan dillərində mükəmməl anlayırsan."
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"Sənəddən aşağıdakı məlumatları dəqiq çıxar: {lang_prompt}"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                ],
+            }
+        ],
+        max_tokens=1000
+    )
+    return response.choices[0].message.content
+
+# 1. İnterfeys: Dil və Fayl Seçimi
+st.sidebar.header("⚙️ Tənzimləmələr")
+target_lang = st.sidebar.selectbox("Nəticə hansı dildə olsun?", ["Azərbaycan", "English", "Русский", "Türkçe"])
+
+uploaded_file = st.file_uploader("Sənədi yükləyin (JPG, PNG, PDF)", type=['jpg', 'png', 'jpeg', 'pdf'])
+
+# Çıxarılacaq məlumatların siyahısı (Sizin tələbinizə uyğun)
+data_points = """
+1. Brutto çəki (Gross weight)
+2. Netto çəki (Net weight)
+3. Göndərən (Consignor/Shipper)
+4. Qəbul edən (Consignee/Receiver)
+5. İnvoys dəyəri və Valyuta (Total Invoice Value)
+6. HS Code (XİF MN Kodu - 10 rəqəmli)
+"""
 
 if uploaded_file:
-    # Ekranı iki hissəyə bölürük
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("📝 Qrafalar üzrə məlumatlar")
-        # XML-dən gələn məlumatları simulyasiya edirik
-        qrafa_2 = st.text_input("Qrafa 2: Göndərən", value="Logistics Corp LLC")
-        qrafa_31 = st.text_area("Qrafa 31: Malın təsviri", value="Fındıq ləpəsi, 20 ton")
-        qrafa_33 = st.text_input("Qrafa 33: XİF MN Kodu", value="0802220000")
-        qrafa_35 = st.number_input("Qrafa 35: Brutto çəki (kq)", value=20000)
-        
+        st.image(uploaded_file, caption="Yüklənən Sənəd", use_container_width=True)
+        analyze_btn = st.button("🔍 Sənədi Analiz Et")
+
     with col2:
-        st.subheader("📄 Bəyannamə Ön Baxış (SAD)")
-        # Burada bəyannamənin vizual forması görünəcək
-        st.info(f"""
-        *BƏYANNAMƏ FORMASI (ÖN BAXIŞ)*
-        ---
-        *Göndərən:* {qrafa_2}
-        *Kod:* {qrafa_33}
-        *Çəki:* {qrafa_35} kq
-        *Təsvir:* {qrafa_31}
-        """)
-        
-        if st.button("Bəyannaməni Təsdiqlə və İxrac Et"):
-            st.success("Bəyannamə uğurla hazırlandı!")
+        if analyze_btn:
+            with st.spinner("Süni İntellekt sənədi oxuyur..."):
+                try:
+                    result = analyze_with_ai(uploaded_file, data_points)
+                    st.subheader(f"📊 Analiz Nəticəsi ({target_lang})")
+                    st.success("Məlumatlar uğurla çıxarıldı:")
+                    st.write(result)
+                    
+                    # Nəticəni kopyalamaq üçün bölmə
+                    st.text_area("Xanaya köçürmək üçün mətn:", value=result, height=200)
+                except Exception as e:
+                    st.error(f"Xəta baş verdi: {e}")
 import pandas as pd
 from PIL import Image
 from openai import OpenAI
