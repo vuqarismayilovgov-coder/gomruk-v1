@@ -41,7 +41,7 @@ def create_qib_xml(general_data, items_data):
 # --- SİDEBAR ---
 st.sidebar.title("🚀 Borderpoint")
 target_lang = st.sidebar.selectbox("Analiz dili:", ["Azərbaycan", "English", "Русский", "Türkçe"])
-st.sidebar.info("Sistem Maşın nömrəsi, CMR və HS kodlar üzrə detallı analiz aparır.")
+st.sidebar.info("Sistem CMR qrafaları və Maşın nömrəsi üzrə dəqiq analiz aparır.")
 
 st.title("📑 Borderpoint | Detallı Gömrük Analizi")
 
@@ -70,26 +70,31 @@ if uploaded_files:
 
     # --- ANALİZ PROSESİ ---
     if st.button("🔍 Sənədləri Tam Analiz Et"):
-        with st.spinner('Süni İntellekt CMR, Maşın və HS kodları analiz edir...'):
+        with st.spinner('Süni İntellekt CMR qrafalarını analiz edir...'):
             try:
+                # Sizin tələblərinizə uyğun olaraq xüsusi strukturlaşdırılmış prompt
                 prompt_text = f"""
-                Sən peşəkar gömrük brokerisən. Sənədlərdəki (İnvoys, CMR, Packing List) bütün məlumatları oxu.
-                
-                Səndən tələb olunanlar:
-                1. Ümumi məlumatları (General) tap: Göndərən, Alan, Maşın nömrəsi, CMR tarixi, CMR nömrəsi, Toplam İnvoys Dəyəri və Toplam Brutto çəki.
-                2. Malları HS Kodlarına (XİF MN) görə TAM DƏQİQ qruplaşdır.
-                3. Hər bir fərqli HS kodu üçün ayrıca Netto və Brutto çəkiləri müəyyən et.
-                
+                Sən peşəkar gömrük brokerisən. CMR və İnvoys sənədlərini analiz et.
+                Xüsusi təlimatlar:
+                1. CMR 1-ci qrafasından: Göndərənin adını tap (Sender).
+                2. CMR 2-ci qrafasından: Alıcının adını tap (Receiver).
+                3. CMR 5-ci qrafasından: İnvoys nömrəsi və tarixini tap.
+                4. CMR nömrəsi: Sənədin yuxarı sağ hissəsindən axtar. Əgər nömrə yoxdursa "N/Z" olaraq qeyd et.
+                5. Maşın nömrəsi: Sənədin həm yuxarı sağ hissəsində, həm də aşağı hissəsində (15, 23, 25-ci qrafalar ətrafı) axtar.
+                6. CMR Tarixi: Sənədin aşağı hissəsindəki (21 və ya 24-cü qrafalar yaxınlığında) tarixi tap.
+                7. Malları HS Kodlarına (XİF MN) görə TAM DƏQİQ qruplaşdır.
+
                 JSON formatında bu strukturda qaytar:
                 {{
                     "general": {{
-                        "sender": "Göndərən",
-                        "receiver": "Qəbul edən",
-                        "truck_number": "Maşın nömrəsi",
-                        "cmr_number": "CMR nömrəsi",
-                        "cmr_date": "CMR tarixi",
-                        "total_invoice": "Ümumi İnvoys Dəyəri",
-                        "total_gross_weight": "Toplam Brutto Çəki (kq)"
+                        "sender": "CMR 1. qrafadakı ad",
+                        "receiver": "CMR 2. qrafadakı ad",
+                        "invoice_info": "CMR 5. qrafadakı invoys no və tarix",
+                        "truck_number": "Tapılan maşın nömrəsi",
+                        "cmr_number": "Yuxarı sağdakı nömrə və ya N/Z",
+                        "cmr_date": "Aşağıdakı tarix",
+                        "total_invoice_value": "İnvoysun yekun məbləği",
+                        "total_gross_weight": "Toplam Brutto çəki"
                     }},
                     "items": [
                         {{
@@ -119,18 +124,20 @@ if uploaded_files:
                 # --- NƏTİCƏLƏR ---
                 st.success("✅ Analiz tamamlandı!")
                 
-                # Ümumi Məlumatlar Paneli
-                st.subheader("🏢 Ümumi Məlumatlar")
+                # Ümumi Məlumatlar Paneli (Tələbinizə uyğun vizualizasiya)
+                st.subheader("🏢 CMR və İnvoys Detalları")
                 g = res_data['general']
                 col_g1, col_g2 = st.columns(2)
                 with col_g1:
-                    st.write(f"*🚛 Maşın:* {g.get('truck_number', 'N/A')}")
-                    st.write(f"*📄 CMR No:* {g.get('cmr_number', 'N/A')}")
-                    st.write(f"*📅 Tarix:* {g.get('cmr_date', 'N/A')}")
+                    st.info(f"🚚 **Maşın nömrəsi:** {g.get('truck_number', 'Tapılmadı')}")
+                    st.write(f"📄 **CMR No:** {g.get('cmr_number', 'N/Z')}")
+                    st.write(f"📅 **CMR Tarixi:** {g.get('cmr_date', 'N/A')}")
+                    st.write(f"🧾 **İnvoys (Qrafa 5):** {g.get('invoice_info', 'N/A')}")
                 with col_g2:
-                    st.write(f"*🏢 Göndərən:* {g.get('sender', 'N/A')}")
-                    st.write(f"*💰 İnvoys:* {g.get('total_invoice', 'N/A')}")
-                    st.write(f"*⚖️ Toplam Brutto:* {g.get('total_gross_weight', 'N/A')}")
+                    st.write(f"📤 **Göndərən (Qrafa 1):** {g.get('sender', 'N/A')}")
+                    st.write(f"📥 **Alıcı (Qrafa 2):** {g.get('receiver', 'N/A')}")
+                    st.write(f"💰 **Toplam Dəyər:** {g.get('total_invoice_value', 'N/A')}")
+                    st.write(f"⚖️ **Yekun Brutto:** {g.get('total_gross_weight', 'N/A')}")
 
                 # HS Kod Üzrə Cədvəl
                 st.subheader("📦 Malların HS Kod Üzrə Bölgüsü")
@@ -138,26 +145,11 @@ if uploaded_files:
                 items_df.columns = ["HS Kod", "Malın Təsviri", "Netto (kq)", "Brutto (kq)"]
                 st.data_editor(items_df, use_container_width=True, hide_index=True)
 
-                # --- BƏYANNAMƏ ÖN BAXIŞ (VİZUAL) ---
-                st.divider()
-                st.subheader("📄 Bəyannamə (SAD) İlkin Baxış")
-                
-                for idx, row in items_df.iterrows():
-                    st.markdown(f"""
-                    <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 5px; background-color: #fcfcfc;">
-                        <span style="color: blue;"><b>Maddə {idx+1}:</b></span> 
-                        <b>Kod:</b> {row['HS Kod']} | 
-                        <b>Təsvir:</b> {row['Malın Təsviri']} | 
-                        <b>Netto:</b> <span style="color: green;">{row['Netto (kq)']} kq</span> | 
-                        <b>Brutto:</b> <span style="color: red;">{row['Brutto (kq)']} kq</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
                 # XML İxrac
                 xml_out = create_qib_xml(res_data['general'], res_data['items'])
-                st.download_button("📥 Detallı XML İxrac Et", xml_out, "borderpoint_final.xml")
+                st.download_button("📥 Borderpoint XML İxrac", xml_out, "borderpoint_cmr_analiz.xml")
 
             except Exception as e:
                 st.error(f"Sistem xətası: {e}")
 else:
-    st.info("Zəhmət olmasa sənədləri yükləyin.")
+    st.info("Lütfən analiz üçün CMR və ya İnvoys sənədlərini yükləyin.")
