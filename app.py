@@ -10,21 +10,20 @@ from pdf2image import convert_from_bytes
 # --- SƏHİFƏ AYARLARI ---
 st.set_page_config(page_title="Borderpoint AI Pro", layout="wide", page_icon="🚢")
 
-# --- API AÇARI ---
+# --- API ---
 try:
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 except Exception:
-    st.error("API açarı tapılmadı! Streamlit Secrets-i yoxlayın.")
+    st.error("API açarı tapılmadı!")
 
-# --- KÖMƏKÇİ FUNKSİYA ---
 def encode_image(image):
     buffered = io.BytesIO()
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-st.title("📑 Borderpoint | İxrac Bəyannaməsi Analitiki")
+st.title("📑 Borderpoint | CMR və İnvoys Analitiki")
 
-uploaded_files = st.file_uploader("Sənədləri yükləyin (PDF/JPG)", type=["jpg", "png", "jpeg", "pdf"], accept_multiple_files=True)
+uploaded_files = st.file_uploader("CMR, İnvoys və ya Digər sənədlər", type=["jpg", "png", "jpeg", "pdf"], accept_multiple_files=True)
 
 all_pages = []
 if uploaded_files:
@@ -36,16 +35,27 @@ if uploaded_files:
         else:
             all_pages.append({"img": Image.open(file), "name": file.name})
 
-    if st.button("🔍 İxrac Sənədlərini Analiz Et"):
-        with st.spinner('Mallar XİF MN kodlarına görə qruplaşdırılır...'):
+    if st.button("🔍 Sənədləri Kompleks Analiz Et"):
+        with st.spinner('CMR və İnvoys məlumatları emal olunur...'):
             try:
-                # Prompt-u malların toplanması üçün gücləndirdik
+                # CMR və HS kodlar üçün gücləndirilmiş PROMPT
                 prompt = """
-                Sən peşəkar gömrük brokerisən. Sənəddən aşağıdakıları JSON formatında çıxar:
-                1. Ümumi məlumatlar: sender, receiver, invoice_info, truck_number, total_value, currency.
-                2. Mallar (items): Hər bir malın 'hs_code' (10 rəqəm), 'net_weight', 'gross_weight', 'price', 'description'.
+                Sən peşəkar gömrük brokerisən. Sənədləri (CMR və İnvoys) analiz et və JSON qaytar:
                 
-                ÇOX VACİB: Eyni HS koduna malik olan malları ayrı-ayrı obyektlər kimi siyahıya sal.
+                1. CMR Məlumatları (cmr_data):
+                   - sender (Qrafa 1): Ad və ünvan
+                   - receiver (Qrafa 2): Ad və ünvan
+                   - loading_place (Qrafa 4): Yer və tarix
+                   - documents (Qrafa 5): Əlavə sənədlər (İnvoys no və s.)
+                   - truck_number (Qrafa 18): Maşın nömrəsi
+                   - trailer_number (Qrafa 18): Qoşqu nömrəsi
+                   - driver_info (Qrafa 23): Sürücü adı və imza yeri
+                   - custom_marks (Qrafa 15): Göndərən ölkə kodu
+                
+                2. Mal Məlumatları (items): 
+                   - Hər bir sətirdə: hs_code (10 rəqəm), description, net_weight, gross_weight, price.
+                
+                ÇOX VACİB: Rəqəmləri təmiz çıxar (vergülsüz), HS kodları malın adından ayır.
                 """
                 
                 content = [{"type": "text", "text": prompt}]
@@ -59,65 +69,21 @@ if uploaded_files:
                     response_format={"type": "json_object"}
                 )
                 st.session_state['res_data'] = json.loads(response.choices[0].message.content)
-                st.success("✅ Analiz hazırdır!")
+                st.success("✅ Kompleks analiz tamamlandı!")
             except Exception as e:
                 st.error(f"Xəta: {e}")
 
-# --- ANALİZ NƏTİCƏLƏRİ VƏ HESABLAMALAR ---
+# --- NƏTİCƏLƏR VƏ ANALİTİKA ---
 if 'res_data' in st.session_state:
-    data = st.session_state['res_data']
-    items = data.get('items', [])
-    
-    # Pandas ilə məlumatları emal edirik (Toplama funksiyası)
-    df = pd.DataFrame(items)
-    
-    if not df.empty:
-        # Rəqəmləri təmizləyirik (vergülləri nöqtəyə çeviririk ki, riyazi hesablama getsin)
-        for col in ['net_weight', 'gross_weight', 'price']:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+    res = st.session_state['res_data']
+    cmr = res.get('cmr_data', {})
+    items = res.get('items', [])
 
-        # HS Koda görə qruplaşdırma və Toplama
-        summary_df = df.groupby('hs_code').agg({
-            'net_weight': 'sum',
-            'gross_weight': 'sum',
-            'price': 'sum',
-            'description': 'first' # İlk təsviri saxla
-        }).reset_index()
-
-        st.divider()
-        st.subheader("📊 XİF MN üzrə Toplam Hesabat (İxrac üçün)")
-        st.dataframe(summary_df, use_container_width=True)
-
-        # --- E-CUSTOMS ÜÇÜN MASTER KOD ---
-        st.subheader("⚡ Portala Ötürmə Skripti (Birinci HS kod üzrə)")
-        
-        # İlk malın cəmlərini götürürük
-        first_hs = summary_df.iloc[0] if not summary_df.empty else {}
-        
-        js_code = f"""
-        (function() {{
-            const d = {{
-                h: "{first_hs.get('hs_code', '')}",
-                n: "{first_hs.get('net_weight', '0')}",
-                b: "{first_hs.get('gross_weight', '0')}",
-                p: "{first_hs.get('price', '0')}"
-            }};
-            // Portalda müvafiq xanaları tapıb cəmləri yazırıq
-            document.querySelector('[id*="HS_CODE"]').value = d.h;
-            document.querySelector('[id*="NET_WEIGHT"]').value = d.n;
-            document.querySelector('[id*="GROSS_WEIGHT"]').value = d.b;
-            document.querySelector('[id*="TOTAL_PRICE"]').value = d.p;
-            
-            alert('Borderpoint: İlk mal qrupunun cəmləri dolduruldu!');
-        }})();
-        """.replace('\n', ' ')
-        
-        st.code(js_code, language="javascript")
-        
-        # Ümumi Məlumatlar
-        st.write("### 🏢 Ümumi Məlumatlar")
-        st.json(data.get('general', data))
-
-else:
-    st.info("Zəhmət olmasa sənədləri yükləyin.")
+    # --- CMR BÖLMƏSİ ---
+    st.header("🚛 CMR Məlumatları (Bəyannamə üçün)")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.text_input("1. Göndərən", cmr.get('sender', ''), key="cmr_1")
+        st.text_input("4. Yükləmə Yeri", cmr.get('loading_place', ''), key="cmr_4")
+    with c2:
+        st.text_input
