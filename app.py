@@ -32,7 +32,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("✅ PDF və Şəkil dəstəyi")
 st.sidebar.write("✅ Multi-sənəd analizi")
 
-st.title("📑 QİB Analiz Paneli (PDF & Image)")
+st.title("📑 QİB yazılımı (PDF & Image)")
 
 # Fayl yükləmə (Həm PDF, həm də Şəkillər)
 uploaded_files = st.file_uploader("Sənədləri seçin (PDF, JPG, PNG)", 
