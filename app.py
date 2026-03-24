@@ -11,33 +11,6 @@ from pdf2image import convert_from_bytes
 # --- SƏHİFƏ AYARLARI ---
 st.set_page_config(page_title="Borderpoint AI Pro", layout="wide", page_icon="🚢")
 
-# --- API AÇARI (Streamlit Secrets-dən oxunur) ---
-try:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-except Exception:
-    st.error("API açarı tapılmadı! Zəhmət olmasa Secrets bölməsində OPENAI_API_KEY-i yoxlayın.")
-
-# --- KÖMƏKÇİ FUNKSİYALAR ---
-def encode_image(image):
-    buffered = io.BytesIO()
-    image.save(buffered, format="JPEG")
-    return base64.b64encode(buffered.getvalue()).decode('utf-8')
-
-def create_qib_xml(data):
-    root 
-[07:27, 2026-03-24] nomrem: import streamlit as st
-import pandas as pd
-from PIL import Image
-from openai import OpenAI
-import io
-import base64
-import json
-import xml.etree.ElementTree as ET
-from pdf2image import convert_from_bytes
-
-# --- SƏHİFƏ AYARLARI ---
-st.set_page_config(page_title="Borderpoint AI Pro", layout="wide", page_icon="🚢")
-
 # --- API AÇARI ---
 try:
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
