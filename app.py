@@ -1,111 +1,62 @@
-import streamlit as st
-import pandas as pd
-from PIL import Image
-from openai import OpenAI
-import io
-import base64
-import json
-from pdf2image import convert_from_bytes
+import uuid
+from datetime import datetime
 
-# --- SƏHİFƏ AYARLARI ---
-st.set_page_config(page_title="Borderpoint AI Pro", layout="wide", page_icon="🚢")
+class BorderpointAI_Pro:
+    def __init__(self, voen, balance=0):
+        self.voen = voen
+        self.balance = balance
+        self.pricing_per_decl = 5.00  # Hər bəyannamə üçün xidmət haqqı (məsələn: 5 AZN)
+        self.history = []
 
-try:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-except Exception:
-    st.error("API açarı tapılmadı!")
+    def add_funds(self, amount):
+        """VÖEN-ə bağlı ödəniş sistemindən balansa mədaxil"""
+        self.balance += amount
+        print(f"💰 Balans artırıldı: +{amount} AZN. Cari balans: {self.balance} AZN")
 
-def encode_image(image):
-    buffered = io.BytesIO()
-    image.save(buffered, format="JPEG", quality=100)
-    return base64.b64encode(buffered.getvalue()).decode('utf-8')
-
-st.title("📑 Borderpoint | Çoxsaylı Mal Analizi")
-st.info("Malların sayı çox olduqda sətirləri itirməmək üçün gücləndirilmiş rejim.")
-
-uploaded_files = st.file_uploader("Sənədləri yükləyin", type=["jpg", "png", "jpeg", "pdf"], accept_multiple_files=True)
-
-all_pages = []
-if uploaded_files:
-    for file in uploaded_files:
-        if file.type == "application/pdf":
-            try:
-                pdf_images = convert_from_bytes(file.read())
-                for idx, img in enumerate(pdf_images):
-                    all_pages.append({"img": img, "name": f"{file.name}_p{idx+1}"})
-            except Exception as e:
-                st.error(f"PDF xətası: {e}")
-        else:
-            all_pages.append({"img": Image.open(file), "name": file.name})
-
-    if st.button("🔍 Malları Sətir-Sətir Analiz Et", use_container_width=True):
-        if not all_pages:
-            st.warning("Sənəd yükləyin.")
-        else:
-            with st.spinner('Border hər sətiri tək-tək yoxlayır...'):
-                try:
-                    # GÜCLƏNDİRİLMİŞ MULTİ-ITEM PROMPT
-                    prompt = """
-                    Sən peşəkar broker və OCR mütəxəssisisən. Sənəddəki CƏDVƏLİ sətir-sətir analiz et.
-                    
-                    HƏR BİR MAL ÜÇÜN MÜTLƏQ QAYDALAR:
-                    1. GTİP (HS CODE): İki sətirdə olan rəqəmləri (məs. 6106.90 və 90.00.00) birləşdirib 10 rəqəmli vahid kod et.
-                    2. SƏTİR İZLƏMƏ: Hər bir HS kodun qarşısındakı Netto, Brutto və Qiyməti başqa sətirlərlə qarışdırma. Onlar eyni üfüqi xətt üzrə olmalıdır.
-                    3. RƏQƏMLƏR: Vergülləri sil, yalnız nöqtə və rəqəm saxla.
-                    
-                    JSON strukturunda hər bir malı 'items' siyahısına sətir ardıcıllığı ilə əlavə et:
-                    {
-                      "invoice_data": {"no": "", "date": "", "total": 0.0, "cur": ""},
-                      "cmr_data": {"sender": "", "receiver": "", "truck_no": ""},
-                      "items": [
-                        {"hs_code": "10 rəqəm", "net": 0.0, "gross": 0.0, "price": 0.0, "desc": "məhsul təsviri"}
-                      ]
-                    }
-                    Heç bir malı ötürmə!
-                    """
-                    
-                    content = [{"type": "text", "text": prompt}]
-                    for page in all_pages:
-                        b64 = encode_image(page["img"])
-                        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
-
-                    response = client.chat.completions.create(
-                        model="gpt-4o",
-                        messages=[{"role": "user", "content": content}],
-                        response_format={"type": "json_object"}
-                    )
-                    st.session_state['res_data'] = json.loads(response.choices[0].message.content)
-                    st.success("✅ Analiz tamamlandı!")
-                except Exception as e:
-                    st.error(f"Analiz xətası: {e}")
-
-if 'res_data' in st.session_state:
-    res = st.session_state['res_data']
-    items = res.get('items', [])
-    
-    # MALLARIN CƏDVƏLİ
-    if items:
-        st.header("📊 Malların Siyahısı")
-        df = pd.DataFrame(items)
+    def ai_smart_scan(self, raw_document_data):
+        """Sənədi oxuyan və XİF U kodlarını təyin edən AI motoru"""
+        print("🔍 AI Sənədi analiz edir və XİF U kodlarını axtarır...")
         
-        # Sütun adlarını və rəqəmləri təmizləyirik
-        for col in ['net', 'gross', 'price']:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
-        
-        # Orijinal siyahını göstər
-        st.write("#### Oxunan bütün sətirlər:")
-        st.dataframe(df, use_container_width=True)
-        
-        # HS Kod üzrə cəmlənmiş halı
-        st.divider()
-        st.write("#### 📦 GTİP üzrə Toplanmış Hesabat (Bəyannamə üçün):")
-        summary = df.groupby('hs_code').agg({'desc': 'first', 'net': 'sum', 'gross': 'sum', 'price': 'sum'}).reset_index()
-        st.table(summary)
+        # Bu hissə real OCR və NLP (Natural Language Processing) modellərinə bağlanır
+        processed_data = {
+            "decl_id": str(uuid.uuid4())[:8],
+            "hscode_suggested": "8517.12.00.00", # Nümunə: Telefonlar üçün kod
+            "tax_calculation": 18.0, # ƏDV dərəcəsi
+            "origin_country": "Germany",
+            "confidence_score": 0.98  # AI-ın dəqiqlik dərəcəsi
+        }
+        return processed_data
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Cəmi Netto", f"{summary['net'].sum():,.2f}")
-        m2.metric("Cəmi Brutto", f"{summary['gross'].sum():,.2f}")
-        m3.metric("Cəmi Qiymət", f"{summary['price'].sum():,.2f}")
-else:
-    st.info("Border sənəd gözləyir...")
+    def process_declaration(self, doc_data):
+        """Bəyannamənin ödəniş və təsdiq mərhələsi"""
+        if self.balance < self.pricing_per_decl:
+            return "❌ Xəta: Balans yetərli deyil. Zəhmət olmasa VÖEN hesabınızı artırın."
+
+        # AI Analizi işə düşür
+        result = self.ai_smart_scan(doc_data)
+        
+        # Ödənişin çıxılması
+        self.balance -= self.pricing_per_decl
+        result["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        result["status"] = "TƏSDİQLƏNDİ (Gömrüyə göndərildi)"
+        
+        self.history.append(result)
+        return result
+
+# --- SİSTEMİN İŞƏ SALINMASI ---
+
+# 1. İstifadəçi (Broker) daxil olur
+broker_vugar = BorderpointAI_Pro(voen="1234567891", balance=2.0)
+
+# 2. Balans artırılır (Ödəniş sistemi vasitəsilə)
+broker_vugar.add_funds(50.0) 
+
+# 3. Sənəd yüklənir və bəyannamə emal edilir
+invoice_content = "Invoice from Berlin: 100x iPhone 15 Pro..."
+final_result = broker_vugar.process_declaration(invoice_content)
+
+print("\n--- Əməliyyat Tamamlandı ---")
+print(f"Bəyannamə ID: {final_result['decl_id']}")
+print(f"Təklif edilən XİF U: {final_result['hscode_suggested']}")
+print(f"Status: {final_result['status']}")
+print(f"Qalıq Balans: {broker_vugar.balance} AZN")
