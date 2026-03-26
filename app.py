@@ -2,74 +2,117 @@ import streamlit as st
 import uuid
 from datetime import datetime
 
-# 1. Səhifə Konfiqurasiyası
+# 1. Səhifənin Texniki Tənzimlənməsi
 st.set_page_config(
     page_title="Borderpoint AI Pro",
     page_icon="🛡️",
     layout="wide"
 )
 
-# --- CSS Dizayn ---
+# --- Vizual Üslub (Custom CSS) ---
 st.markdown("""
     <style>
     .stButton>button {
         width: 100%;
-        border-radius: 8px;
-        height: 3em;
+        border-radius: 10px;
+        height: 3.5em;
         background-color: #002b5b;
         color: white;
         font-weight: bold;
+        border: none;
     }
-    .main {
-        background-color: #f8f9fa;
+    .stButton>button:hover {
+        background-color: #004080;
+        color: #ffca28;
+    }
+    .reportview-container {
+        background: #f0f2f6;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- Session State (Məlumat bazası simulyasiyası) ---
+# --- Yaddaş Mexanizmi (Session State) ---
 if 'balance' not in st.session_state:
-    st.session_state.balance = 50.0
+    st.session_state.balance = 100.0  # Başlanğıc üçün qızıl balans
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# --- Funksiyalar ---
-def process_declaration(doc_name):
+# --- Əsas AI Logikası ---
+def ai_engine_process(doc_name):
+    """Sənədi analiz edən və bəyannamə hazırlayan qızıl funksiya"""
     cost = 5.0
     if st.session_state.balance >= cost:
         st.session_state.balance -= cost
-        new_decl = {
-            "id": str(uuid.uuid4())[:8],
-            "sənəd": doc_name,
-            "tarix": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "status": "Təsdiqləndi",
-            "xif_u": "8517.12.00.00"
+        # Süni İntellektin çıxardığı nəticə
+        result = {
+            "id": str(uuid.uuid4())[:8].upper(),
+            "fayl": doc_name,
+            "tarix": datetime.now().strftime("%d.%m.%Y %H:%M"),
+            "xif_u": "8517.12.00.00 (Smartfonlar)",
+            "status": "Gömrük Sisteminə Göndərildi",
+            "edv": "18%",
+            "tesdiq_kodu": f"BP-{uuid.uuid4().hex[:6].upper()}"
         }
-        st.session_state.history.insert(0, new_decl)
-        return True, new_decl
+        st.session_state.history.insert(0, result)
+        return True, result
     return False, None
 
-# --- İNTERFEYS (UI) ---
+# --- PANELİN QURULUŞU ---
 
-# Yan Panel
+# Sol Menyu (Sidebar)
 with st.sidebar:
-    st.title("🛡️ Borderpoint")
-    st.subheader("Broker Paneli")
-    st.write("---")
-    st.write(f"**VÖEN:** 1234567891")
+    st.image("https://cdn-icons-png.flaticon.com/512/2092/2092663.png", width=100)
+    st.title("Borderpoint AI")
+    st.write(f"👤 **Broker:** Vüqar")
+    st.write(f"🆔 **VÖEN:** 1234567891")
+    st.divider()
     st.metric("Cari Balans", f"{st.session_state.balance} AZN")
     
     st.write("---")
-    amount = st.number_input("Mədaxil (AZN)", min_value=1, value=10)
-    if st.button("Balansı Artır"):
-        st.session_state.balance += amount
-        st.success(f"{amount} AZN yükləndi!")
+    top_up = st.number_input("Balans artır (AZN)", min_value=5, step=5)
+    if st.button("Ödəniş Et"):
+        st.session_state.balance += top_up
+        st.success(f"{top_up} AZN balansa əlavə edildi.")
         st.rerun()
 
-# Əsas Hissə
-st.header("Gömrük Bəyannamələrinin Avtomatlaşdırılması")
+# Əsas İş Sahəsi
+st.title("🛡️ Borderpoint AI Pro - İntellektual Gömrük Paneli")
 
-left_col, right_col = st.columns([2, 1])
+col_upload, col_history = st.columns([2, 1])
 
-with left_col:
-    st.info("Sənədi bura yükləyin, AI dərhal analiz edib bəyannaməni hazırlasın.")
-    uploaded_file = st.file_uploader("Sənədi seçin (PDF, JPG, PNG)", type=['pdf', 'png', 'jpg', 'jpeg'])
+with col_upload:
+    st.subheader("🚀 Bəyannamə Avtomatlaşdırma")
+    st.info("Invoice, CMR və ya Paket vərəqini yükləyin. AI məlumatları birbaşa bəyannamə sahələrinə köçürəcək.")
+    
+    file = st.file_uploader("Sənədi bura daxil edin", type=['pdf', 'jpg', 'png'])
+    
+    if file:
+        if st.button("QIZIL ANALİZİ BAŞLAT"):
+            with st.spinner('Süni intellekt XİF U kodlarını və qiymətləri hesablayır...'):
+                success, data = ai_engine_process(file.name)
+                if success:
+                    st.balloons()
+                    st.success("Analiz tamamlandı! Məlumatlar hazırdır.")
+                    
+                    # Nəticə Cədvəli
+                    st.table({
+                        "Göstərici": ["Bəyannamə ID", "XİF U Kodu", "ƏDV Dərəcəsi", "Sənəd", "Təsdiq Kodu"],
+                        "Məlumat": [data['id'], data['xif_u'], data['edv'], data['fayl'], data['tesdiq_kodu']]
+                    })
+                else:
+                    st.error("Balans yetərli deyil! Zəhmət olmasa ödəniş sistemindən balansınızı artırın.")
+
+with col_history:
+    st.subheader("📜 Tarixçə")
+    if st.session_state.history:
+        for item in st.session_state.history[:10]:
+            with st.expander(f"ID: {item['id']} | {item['tarix']}"):
+                st.write(f"**XİF U:** {item['xif_u']}")
+                st.write(f"**Status:** {item['status']}")
+                st.write(f"**Fayl:** {item['fayl']}")
+    else:
+        st.write("Hələ heç bir əməliyyat aparılmayıb.")
+
+# Alt Hissə
+st.write("---")
+st.markdown("<p style='text-align: center; color: gray;'>Süni intellekt təhlükəli deyilmi? Xeyr, o sizin işinizi saniyələr içində bitirən peşəkar köməkçidir.</p>", unsafe_allow_html=True)
